@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { getAdminNations, updateNation, deleteNation } from '../../services/adminApi'
 import { DataTable, Modal, Panel, Button, FlexCol, FlexRow, SpaceBetween, InputField } from '../../components/ui'
-import { inputStyle, btnStyle } from '../../components/ui/FormStyles'
+import { btnStyle } from '../../components/ui/FormStyles'
 import { fmtMoney } from '../../utils/format'
 
 export function NationsPage() {

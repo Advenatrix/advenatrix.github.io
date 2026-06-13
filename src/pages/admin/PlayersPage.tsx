@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { getAdminPlayers, updatePlayer, deletePlayer, getAdminNations } from '../../services/adminApi'
 import { DataTable, Modal, Panel, Button, FlexCol, FlexRow, InputField, SelectField } from '../../components/ui'
-import { inputStyle, btnStyle } from '../../components/ui/FormStyles'
+import { btnStyle } from '../../components/ui/FormStyles'
 
 export function PlayersPage() {
   const [players, setPlayers] = useState<any[]>([])

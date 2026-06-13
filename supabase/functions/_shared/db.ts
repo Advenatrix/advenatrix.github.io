@@ -1,4 +1,4 @@
-import { createClient } from 'jsr:@supabase/supabase-js@1'
+import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from './cors.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!

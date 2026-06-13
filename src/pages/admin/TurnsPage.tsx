@@ -14,7 +14,7 @@ export function TurnsPage() {
   const columns = [
     { key: 'number', label: 'Turn #' },
     { key: 'status', label: 'Status', render: (row: any) => (
-      <Badge variant={row.status === 'open' ? 'success' : 'default'}>{row.status}</Badge>
+      <Badge label={row.status} variant={row.status === 'open' ? 'success' : 'default'} />
     )},
     { key: 'deadline', label: 'Deadline', render: (row: any) => new Date(row.deadline).toLocaleString() },
     { key: 'processed_at', label: 'Processed', render: (row: any) =>

@@ -21,7 +21,7 @@ function App() {
   }
 
   return (
-    <BrowserRouter basename="/georp">
+    <BrowserRouter>
       <Routes>
         <Route path="/" element={
           user ? (isAdmin ? <Navigate to="/admin" replace /> : <Navigate to="/game" replace />) : <HomePage />

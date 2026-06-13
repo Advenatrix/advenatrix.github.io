@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { getAdminPins, createAdminPin, updateAdminPin, deleteAdminPin } from '../../services/adminApi'
 import { getAdminNations } from '../../services/adminApi'
 import { Panel, Modal, Button, FlexCol, FlexRow, SpaceBetween, InputField, SelectField, MapPinIcon } from '../../components/ui'
-import { inputStyle, btnStyle } from '../../components/ui/FormStyles'
+import { btnStyle } from '../../components/ui/FormStyles'
 import worldMap from '../../assets/world_map.png'
 
 type Pin = {

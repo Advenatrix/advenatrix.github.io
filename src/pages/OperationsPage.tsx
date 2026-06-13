@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Panel, Button, Modal, FlexCol, FlexRow, SpaceBetween, Badge } from '../components/ui'
+import { Panel, Button, Modal } from '../components/ui'
 import { inputStyle, selectStyle } from '../components/ui/FormStyles'
 import { getMilitary } from '../services/api'
 import { getFronts, createFront, assignFormationToFront, unassignFormationFromFront, retreatFromFront, launchBattle, getBattles } from '../services/api'

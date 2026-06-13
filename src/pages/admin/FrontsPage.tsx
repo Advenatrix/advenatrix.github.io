@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Panel, Button, Modal, FlexCol, FlexRow, SpaceBetween, Badge } from '../../components/ui'
+import { Panel, Button, Modal, FlexCol, FlexRow, Badge } from '../../components/ui'
 import { inputStyle, selectStyle, btnStyle } from '../../components/ui/FormStyles'
 import { getPendingFronts, rejectFront } from '../../services/api'
 import { getAdminNations, getAdminFronts, approveFrontMulti, updateFront, deleteFront as adminDeleteFront } from '../../services/adminApi'
@@ -262,7 +262,7 @@ export function FrontsPage() {
                   display: 'flex', gap: 8, padding: '4px 0',
                   borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center',
                 }}>
-                  <Badge variant={f.status === 'active' ? 'success' : f.status === 'pending' ? 'warning' : 'default'}>{f.status}</Badge>
+                  <Badge label={f.status} variant={f.status === 'active' ? 'success' : f.status === 'pending' ? 'warning' : 'default'} />
                   <span style={{ color: 'var(--cyan-bright)' }}>{f.name}</span>
                   <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>
                     A:{atkNames || f.attacker_name}

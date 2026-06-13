@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Panel, FlexCol, FlexRow, SpaceBetween } from '../components/ui'
+import { Panel } from '../components/ui'
 import {
   getNation,
   getEcoHistory,

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Panel, Button, Modal, FlexCol, FlexRow, SpaceBetween, Badge } from '../components/ui'
+import { Panel, Button, Modal } from '../components/ui'
 import { inputStyle, selectStyle } from '../components/ui/FormStyles'
 import { getMilitary, createUnitTemplate, deleteUnitTemplate, createFormation, createUnit, assignUnit, deleteUnit } from '../services/api'
 import { UNIT_TYPES } from '../game/unitTypes'

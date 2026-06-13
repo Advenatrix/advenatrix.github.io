@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { getAdminOrders, getAdminNations, getAdminTurns } from '../../services/adminApi'
 import { DataTable, Panel, FlexCol, FlexRow } from '../../components/ui'
-import { inputStyle, selectStyle } from '../../components/ui/FormStyles'
+import { selectStyle } from '../../components/ui/FormStyles'
 
 export function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([])

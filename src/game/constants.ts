@@ -1,4 +1,4 @@
-import type { Resource, Sector } from './types'
+import type { Resource } from './types'
 
 export const RESOURCE_LABELS: Record<Resource, string> = {
   oil: 'Oil',

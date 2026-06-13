@@ -118,7 +118,7 @@ export function DashboardPage() {
             {data.turnHistory.map((t: any) => (
               <FlexRow key={t.id} gap={16} style={{ padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
                 <span style={{ color: 'var(--cyan-bright)', minWidth: 60 }}>Turn {t.number}</span>
-                <Badge variant={t.status === 'open' ? 'success' : 'default'}>{t.status}</Badge>
+                <Badge label={t.status} variant={t.status === 'open' ? 'success' : 'default'} />
                 <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>
                   {t.processed_at ? new Date(t.processed_at).toLocaleString() : '—'}
                 </span>
@@ -142,7 +142,7 @@ export function DashboardPage() {
                 <span style={{ flex: 1, color: p.nation_name ? 'var(--cyan-bright)' : 'var(--text-dim)' }}>
                   {p.nation_name || '—'}
                 </span>
-                <Badge variant={p.has_submitted ? 'success' : 'danger'}>{p.has_submitted ? 'Submitted' : 'Pending'}</Badge>
+                <Badge label={p.has_submitted ? 'Submitted' : 'Pending'} variant={p.has_submitted ? 'success' : 'danger'} />
               </FlexRow>
             ))}
             {data.players.length === 0 && (
