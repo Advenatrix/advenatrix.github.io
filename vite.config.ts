@@ -4,6 +4,7 @@ import babel from '@rolldown/plugin-babel'
 
 export default defineConfig({
   base: '/',
+  build: { outDir: 'docs' },
   plugins: [
     react(),
     babel({ presets: [reactCompilerPreset()] }),
