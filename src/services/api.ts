@@ -1,16 +1,21 @@
 import { getSupabase } from './supabase'
+import { getToken, getTokenUser } from '../game/store/authStore'
 
 const supabase = getSupabase()
 const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL + '/functions/v1'
 
+function authHeaders(): Record<string, string> {
+  const token = getToken()
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+}
+
 async function invokeGameApi(method: string, path: string, body?: unknown) {
-  const token = (await supabase.auth.getSession()).data.session?.access_token
   const res = await fetch(`${FUNCTIONS_URL}/game-api${path}`, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers: authHeaders(),
     body: body ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) {
@@ -21,13 +26,9 @@ async function invokeGameApi(method: string, path: string, body?: unknown) {
 }
 
 async function invokeAdmin(method: string, path: string, body?: unknown) {
-  const token = (await supabase.auth.getSession()).data.session?.access_token
   const res = await fetch(`${FUNCTIONS_URL}/admin${path}`, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers: authHeaders(),
     body: body ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) {
@@ -35,34 +36,6 @@ async function invokeAdmin(method: string, path: string, body?: unknown) {
     throw new Error(err.error || `Admin request failed: ${res.status}`)
   }
   return res.json()
-}
-
-// Auth — now uses Supabase Auth directly
-export async function register(username: string, password: string) {
-  const email = `${username}@georp.game`
-  const { data, error } = await supabase.auth.signUp({ email, password })
-  if (error) throw new Error(error.message)
-  return {
-    player: { id: data.user!.id, username },
-    token: data.session?.access_token || '',
-  }
-}
-
-export async function login(username: string, password: string) {
-  const email = `${username}@georp.game`
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) throw new Error(error.message)
-  return {
-    player: { id: data.user!.id, username },
-    token: data.session?.access_token || '',
-  }
-}
-
-export async function getMe() {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-  const username = user.email?.replace('@georp.game', '') || 'unknown'
-  return { player: { id: user.id, username } }
 }
 
 // Game — reads through supabase-js, writes through Edge Function
@@ -118,11 +91,12 @@ export async function submitOrder(type: string, targetId?: string, payload?: str
 
 // Pins
 export async function getPins() {
-  const { data: { user } } = await supabase.auth.getUser()
+  const tokenUser = getTokenUser()
+  const userId = tokenUser?.sub || 'none'
   const { data: pins, error } = await supabase
     .from('pins')
     .select('*')
-    .or(`type.eq.admin,and(type.eq.player,created_by.eq.${user?.id}),and(type.eq.player,visibility.eq.shared)`)
+    .or(`type.eq.admin,and(type.eq.player,created_by.eq.${userId}),and(type.eq.player,visibility.eq.shared)`)
     .order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
   return { pins: pins || [] }
@@ -142,11 +116,13 @@ export async function deletePin(id: string) {
 
 // Intel Shares
 export async function getIntelShares() {
-  const { data: { user } } = await supabase.auth.getUser()
+  const tokenUser = getTokenUser()
+  if (!tokenUser) return { shares: [] }
+
   const { data } = await supabase
     .from('nations')
     .select('id')
-    .eq('player_id', user?.id)
+    .eq('player_id', tokenUser.sub)
     .single()
   if (!data) return { shares: [] }
 

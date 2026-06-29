@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std/http/server.ts'
 import { db, json } from '../_shared/db.ts'
 import { corsHeaders } from '../_shared/cors.ts'
+import { getUserFromRequest } from '../_shared/jwt.ts'
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,19 +12,9 @@ serve(async (req) => {
   const method = req.method
   const path = url.pathname
 
-  // Verify admin via supabase auth
-  const authHeader = req.headers.get('Authorization') || ''
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
-
-  const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false },
-  })
-  const { data: { user } } = await userClient.auth.getUser()
-
-  if (!user || user.email !== 'admin@georp.game') {
+  // Verify admin via custom JWT
+  const user = await getUserFromRequest(req)
+  if (!user || user.username !== 'admin') {
     return json({ error: 'Unauthorized' }, 401)
   }
 
@@ -254,7 +245,7 @@ serve(async (req) => {
     const { x, y, label, description, nation_id } = body
     const { data: pin, error } = await db.from('pins').insert({
       x, y, label, description: description || '', type: 'admin', visibility: 'private',
-      nation_id: nation_id || null, created_by: user.id,
+      nation_id: nation_id || null, created_by: user.sub,
     }).select().single()
     if (error) return json({ error: error.message }, 500)
     return json({ pin })

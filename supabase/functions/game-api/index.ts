@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std/http/server.ts'
-import { db, createUserClient, json } from '../_shared/db.ts'
+import { db, json } from '../_shared/db.ts'
 import { handleCors } from '../_shared/cors.ts'
+import { getUserFromRequest } from '../_shared/jwt.ts'
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -41,13 +42,17 @@ function computeCosts(baseCost: number, baseUpkeep: number, a: string, fp: strin
   return { build_cost: Math.round(baseCost * m), upkeep: baseUpkeep }
 }
 
-// ── Auth: get player's nation from the user-authenticated client ─
+// ── Auth: helper to get player's nation from JWT user ─
 
-async function getMyNation(userClient: ReturnType<typeof createUserClient>) {
-  const { data: { user } } = await userClient.auth.getUser()
+async function getMyNation(user: { sub: string; username: string } | null) {
   if (!user) return null
-  const { data } = await userClient.from('nations').select('id, name').eq('player_id', user.id).single()
+  const { data } = await db.from('nations').select('id, name').eq('player_id', user.sub).single()
   return data
+}
+
+async function getMyNationFromReq(req: Request) {
+  const user = await getUserFromRequest(req)
+  return user ? getMyNation(user) : null
 }
 
 // ── Handler ─────────────────────────────────────────────────────
@@ -143,12 +148,11 @@ serve(async (req) => {
 
   // ---- Route: GET /pins ----
   if (method === 'GET' && url.pathname === '/pins') {
-    const userClient = createUserClient(req)
-    const myNation = await getMyNation(userClient)
+    const user = await getUserFromRequest(req)
+    const myNation = await getMyNation(user)
     const myNationId = myNation?.id || null
 
-    const { data: { user } } = await userClient.auth.getUser()
-    const isAdmin = user?.email === 'admin@georp.game'
+    const isAdmin = user?.username === 'admin'
 
     let pins
     if (isAdmin) {
@@ -156,7 +160,7 @@ serve(async (req) => {
       pins = data
     } else {
       const { data } = await db.from('pins').select('*')
-        .or(`type.eq.admin,and(type.eq.player,created_by.eq.${user?.id}),and(type.eq.player,visibility.eq.shared)`)
+        .or(`type.eq.admin,and(type.eq.player,created_by.eq.${user?.sub}),and(type.eq.player,visibility.eq.shared)`)
         .order('created_at', { ascending: false })
       pins = data
     }
@@ -169,11 +173,10 @@ serve(async (req) => {
     const { x, y, label, description, visibility } = body
     if (x == null || y == null || !label) return json({ error: 'x, y, and label are required' }, 400)
 
-    const userClient = createUserClient(req)
-    const { data: { user } } = await userClient.auth.getUser()
+    const user = await getUserFromRequest(req)
     if (!user) return json({ error: 'Not authenticated' }, 401)
 
-    const myNation = await getMyNation(userClient)
+    const myNation = await getMyNation(user)
 
     const { data: pin, error } = await db.from('pins').insert({
       nation_id: myNation?.id || null,
@@ -181,7 +184,7 @@ serve(async (req) => {
       description: description || '',
       type: 'player',
       visibility: visibility || 'private',
-      created_by: user.id,
+      created_by: user.sub,
     }).select().single()
 
     if (error) return json({ error: error.message }, 500)
@@ -191,11 +194,10 @@ serve(async (req) => {
   // ---- Route: PUT /pins/:id ----
   const pinPutMatch = url.pathname.match(/^\/pins\/([^\/]+)$/)
   if (method === 'PUT' && pinPutMatch) {
-    const userClient = createUserClient(req)
-    const { data: { user } } = await userClient.auth.getUser()
+    const user = await getUserFromRequest(req)
     if (!user) return json({ error: 'Not authenticated' }, 401)
 
-    const { data: existing } = await db.from('pins').select('*').eq('id', pinPutMatch[1]).eq('created_by', user.id).single()
+    const { data: existing } = await db.from('pins').select('*').eq('id', pinPutMatch[1]).eq('created_by', user.sub).single()
     if (!existing) return json({ error: 'Pin not found or not yours' }, 404)
 
     const body = await req.json()
@@ -214,11 +216,10 @@ serve(async (req) => {
 
   // ---- Route: DELETE /pins/:id ----
   if (method === 'DELETE' && pinPutMatch) {
-    const userClient = createUserClient(req)
-    const { data: { user } } = await userClient.auth.getUser()
+    const user = await getUserFromRequest(req)
     if (!user) return json({ error: 'Not authenticated' }, 401)
 
-    const { data: existing } = await db.from('pins').select('id').eq('id', pinPutMatch[1]).eq('created_by', user.id).single()
+    const { data: existing } = await db.from('pins').select('id').eq('id', pinPutMatch[1]).eq('created_by', user.sub).single()
     if (!existing) return json({ error: 'Pin not found or not yours' }, 404)
 
     await db.from('pins').delete().eq('id', pinPutMatch[1])
@@ -227,8 +228,7 @@ serve(async (req) => {
 
   // ---- Route: GET /intel-shares ----
   if (method === 'GET' && url.pathname === '/intel-shares') {
-    const userClient = createUserClient(req)
-    const myNation = await getMyNation(userClient)
+    const myNation = await getMyNationFromReq(req)
     if (!myNation) return json({ shares: [] })
 
     const { data: shares } = await db.from('intel_shares')
@@ -251,8 +251,7 @@ serve(async (req) => {
     const { target_nation_id } = body
     if (!target_nation_id) return json({ error: 'target_nation_id required' }, 400)
 
-    const userClient = createUserClient(req)
-    const myNation = await getMyNation(userClient)
+    const myNation = await getMyNationFromReq(req)
     if (!myNation) return json({ error: 'You must control a nation to share intel' }, 400)
 
     if (target_nation_id === myNation.id) return json({ error: 'Cannot share intel with yourself' }, 400)
@@ -272,8 +271,7 @@ serve(async (req) => {
   // ---- Route: DELETE /intel-shares/:id ----
   const intelMatch = url.pathname.match(/^\/intel-shares\/([^\/]+)$/)
   if (method === 'DELETE' && intelMatch) {
-    const userClient = createUserClient(req)
-    const myNation = await getMyNation(userClient)
+    const myNation = await getMyNationFromReq(req)
     if (!myNation) return json({ error: 'You must control a nation' }, 400)
 
     const { data: share } = await db.from('intel_shares').select('id')
@@ -342,8 +340,7 @@ serve(async (req) => {
     const { name, nation_id, sector } = body
     if (!name || !nation_id) return json({ error: 'Name and nation_id required' }, 400)
 
-    const userClient = createUserClient(req)
-    const myNation = await getMyNation(userClient)
+    const myNation = await getMyNationFromReq(req)
     if (!myNation || myNation.id !== nation_id) return json({ error: 'Not your nation' }, 403)
 
     const STARTUP_COST = 1_000_000_000
@@ -373,8 +370,7 @@ serve(async (req) => {
     const { data: existing } = await db.from('companies').select('id, nation_id').eq('id', subMatch[1]).single()
     if (!existing) return json({ error: 'Company not found' }, 404)
 
-    const userClient = createUserClient(req)
-    const myNation = await getMyNation(userClient)
+    const myNation = await getMyNationFromReq(req)
     if (!myNation || myNation.id !== existing.nation_id) return json({ error: 'Not your company' }, 403)
 
     const { data: company, error } = await db.from('companies').update({ subsidies })
@@ -512,8 +508,7 @@ serve(async (req) => {
     const { type, targetId, payload } = body
     if (!type) return json({ error: 'Order type required' }, 400)
 
-    const userClient = createUserClient(req)
-    const myNation = await getMyNation(userClient)
+    const myNation = await getMyNationFromReq(req)
     if (!myNation) return json({ error: 'No nation controlled' }, 400)
 
     const { data: turn } = await db.from('turns').select('id, number').eq('status', 'open').order('number', { ascending: false }).limit(1).single()
@@ -556,8 +551,7 @@ serve(async (req) => {
     const { provinceId, resource, amount } = body
     if (!provinceId || !resource || amount == null) return json({ error: 'Missing fields' }, 400)
 
-    const userClient = createUserClient(req)
-    const myNation = await getMyNation(userClient)
+    const myNation = await getMyNationFromReq(req)
     if (!myNation) return json({ error: 'No nation controlled' }, 400)
 
     const { data: turn } = await db.from('turns').select('id').eq('status', 'open').order('number', { ascending: false }).limit(1).single()
@@ -583,8 +577,7 @@ serve(async (req) => {
 
   // ---- Route: GET /fronts ----
   if (method === 'GET' && url.pathname === '/fronts') {
-    const userClient = createUserClient(req)
-    const myNation = await getMyNation(userClient)
+    const myNation = await getMyNationFromReq(req)
     if (!myNation) return json({ fronts: [], assignments: [] })
 
     const { data: participantRows } = await db.from('front_participants')
@@ -634,8 +627,7 @@ serve(async (req) => {
     const { name, war_name } = body
     if (!name) return json({ error: 'name required' }, 400)
 
-    const userClient = createUserClient(req)
-    const myNation = await getMyNation(userClient)
+    const myNation = await getMyNationFromReq(req)
     if (!myNation) return json({ error: 'You must control a nation' }, 400)
 
     const { data: front, error } = await db.from('fronts').insert({
@@ -664,8 +656,7 @@ serve(async (req) => {
     const { data: front } = await db.from('fronts').select('*').eq('id', frontAssignMatch[1]).eq('status', 'active').single()
     if (!front) return json({ error: 'Active front not found' }, 404)
 
-    const userClient = createUserClient(req)
-    const myNation = await getMyNation(userClient)
+    const myNation = await getMyNationFromReq(req)
     if (!myNation) return json({ error: 'No nation' }, 401)
 
     const { data: participant } = await db.from('front_participants')
@@ -699,8 +690,7 @@ serve(async (req) => {
     const { data: front } = await db.from('fronts').select('*').eq('id', frontUnassignMatch[1]).eq('status', 'active').single()
     if (!front) return json({ error: 'Active front not found' }, 404)
 
-    const userClient = createUserClient(req)
-    const myNation = await getMyNation(userClient)
+    const myNation = await getMyNationFromReq(req)
     if (!myNation) return json({ error: 'No nation' }, 401)
 
     const { data: participant } = await db.from('front_participants')
@@ -718,8 +708,7 @@ serve(async (req) => {
     const { data: front } = await db.from('fronts').select('*').eq('id', frontRetreatMatch[1]).eq('status', 'active').single()
     if (!front) return json({ error: 'Active front not found' }, 404)
 
-    const userClient = createUserClient(req)
-    const myNation = await getMyNation(userClient)
+    const myNation = await getMyNationFromReq(req)
     if (!myNation) return json({ error: 'No nation controlled' }, 400)
 
     const { data: myParticipant } = await db.from('front_participants')
@@ -757,8 +746,7 @@ serve(async (req) => {
 
   // ---- Route: GET /battles ----
   if (method === 'GET' && url.pathname === '/battles') {
-    const userClient = createUserClient(req)
-    const myNation = await getMyNation(userClient)
+    const myNation = await getMyNationFromReq(req)
     if (!myNation) return json({ battles: [] })
 
     const { data: battles } = await db.from('battles')

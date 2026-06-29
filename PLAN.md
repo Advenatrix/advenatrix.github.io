@@ -1,5 +1,163 @@
 # GeoRP — Development Plan
 
+## Status — Auth Simplification: ✅ DONE (2026-06-20)
+
+All changes from the Auth Simplification plan below have been implemented:
+
+| File | What |
+|------|------|
+| `supabase/migrations/004_users_table.sql` | Creates `users` table, seeds admin, relinks `nations.player_id` → `users.id` |
+| `supabase/functions/auth/index.ts` | `POST /auth/login` + `/auth/register` with bcrypt, returns JWT |
+| `supabase/functions/_shared/jwt.ts` | HS256 JWT `createToken` / `verifyToken` / `getUserFromRequest` (7-day expiry) |
+| `src/game/store/authStore.ts` | Rewritten: localStorage `georp_token`, calls auth Edge Function, cross-tab sync |
+| `src/services/api.ts` | Token from `localStorage.getItem('georp_token')` instead of `supabase.auth` |
+| `src/services/adminApi.ts` | Same token source change, Supabase client removed |
+| `supabase/functions/game-api/index.ts` | All auth checks switched from `supabase.auth.getUser()` to JWT verification |
+| `supabase/functions/admin/index.ts` | Admin check: `user.email === 'admin@georp.game'` → `user.username === 'admin'` |
+
+**To finish deployment:**
+1. `supabase migration up` (run `004_users_table.sql`)
+2. `supabase functions deploy auth game-api admin process-turn`
+3. `supabase secrets set JWT_SECRET=your-secret`
+4. Rebuild + deploy frontend to GitHub Pages
+
+---
+
+## Auth Simplification — From Supabase Auth to Plain Users Table
+
+### Why
+
+Supabase Auth is causing friction — users need to be manually created in the Auth dashboard, login fails with 400 when the user doesn't exist there, and it's an unnecessary layer. The app doesn't use RLS or `auth.uid()` — all DB access goes through Edge Functions and Express. Auth only exists to:
+1. Hash passwords
+2. Issue tokens
+3. Persist sessions (localStorage)
+4. Pass JWT to Edge Functions
+
+All of these can be done with a simple `users` table and ~100 lines of auth code.
+
+### What changes
+
+#### New table: `users`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | default gen_random_uuid() |
+| username | text UNIQUE NOT NULL | user-facing login name |
+| password_hash | text NOT NULL | bcrypt hash |
+| created_at | timestamptz | default now() |
+
+One row per player. The `nations.player_id` FK stays but now points to `users.id` instead of `auth.users.id` (update the FK reference).
+
+#### Frontend changes
+
+1. **`src/services/supabase.ts`** — Keep the Supabase client for DB operations. Remove `createClient` for auth — we only need the REST client for queries. Actually, we can keep `createClient` for DB reads/writes but stop using `supabase.auth.*` methods.
+
+2. **`src/game/store/authStore.ts`** — Replace all `supabase.auth.*` calls:
+   - `init()` → read session token from `localStorage`, validate expiry, decode username
+   - `login(username, password)` → `POST /auth/login` with `{ username, password }`, receive `{ token, user }`, store token in `localStorage`
+   - `register(username, password)` → `POST /auth/register` with `{ username, password }`, receive `{ token, user }`, store token
+   - `logout()` → clear `localStorage`, clear user state
+   - `onAuthStateChange` → listen for `storage` events (cross-tab sync)
+
+3. **`src/services/api.ts`** and **`src/services/adminApi.ts`** — Change token source: instead of `(await supabase.auth.getSession()).data.session?.access_token`, read from `localStorage.getItem('georp_token')`.
+
+4. **Delete** `src/services/supabase.ts` entirely (or gut it to just a Supabase REST client for DB queries without auth).
+
+#### New Edge Function: `auth`
+
+A single endpoint handling login and registration:
+
+```
+POST /auth/login
+  body: { username, password }
+  response: { token, user: { id, username } }
+
+POST /auth/register
+  body: { username, password }
+  response: { token, user: { id, username } }
+```
+
+Logic:
+- `login`: SELECT from `users` WHERE `username = ?`, verify bcrypt hash, issue JWT (signed with service role key or a dedicated secret), return `{ token, user }`
+- `register`: INSERT into `users`, hash password with bcrypt, issue JWT, return `{ token, user }`
+
+JWT payload: `{ sub: user.id, username: user.username, iat, exp }` (exp: 7 days).
+
+#### Edge Function token validation
+
+All Edge Functions (`game-api`, `admin`, `process-turn`) currently verify the Supabase JWT. Switch to verifying the custom JWT using the same secret. The admin check changes from:
+```ts
+user.email === 'admin@georp.game'
+```
+to:
+```ts
+user.username === 'admin'
+```
+
+#### Session handling
+
+- Token stored in `localStorage` key: `georp_token` (or `georp_auth_token`)
+- On `init()`: read token, verify expiry, decode username, set user state
+- If expired → clear and show login form
+- Cross-tab sync: `window.addEventListener('storage', ...)` checks for `georp_token` changes
+
+### Migration from existing Supabase Auth users
+
+When this is deployed, existing auth users in `auth.users` won't carry over. Any current sessions will be invalid. All users need to re-register (or seed via the auth Edge Function).
+
+An admin endpoint in the `admin` Edge Function can create users:
+```
+POST /admin/create-user
+  body: { username, password }
+  auth: requires admin JWT
+```
+
+### Files to create
+
+| File | Purpose |
+|------|---------|
+| `supabase/functions/auth/index.ts` | Login + register Edge Function |
+| `src/lib/auth.ts` | Token encode/decode helpers (or inline in store) |
+
+### Files to modify
+
+| File | Change |
+|------|--------|
+| `src/game/store/authStore.ts` | Full rewrite: localStorage token, custom API calls |
+| `src/services/api.ts` | Read token from `localStorage` instead of `supabase.auth` |
+| `src/services/adminApi.ts` | Same |
+| `supabase/functions/game-api/index.ts` | Validate custom JWT instead of Supabase JWT |
+| `supabase/functions/admin/index.ts` | Validate custom JWT, update admin check to `username === 'admin'` |
+| `supabase/migrations/..._users_table.sql` | New migration: create `users` table |
+| Database FK: `nations.player_id` | Point to `users.id` instead of `auth.users.id` |
+
+### Files to delete
+
+| File | Reason |
+|------|--------|
+| `src/services/supabase.ts` | No longer needed (unless kept for DB-only client) |
+
+### What stays the same
+
+- The login form UI
+- The `{username}@georp.game` convention is gone — direct username login
+- The Express server's seeded users (`admin`, `letheia`, etc.) — they'll need to be migrated to the new `users` table or users re-register
+- All game logic, DB queries, turn processing — unchanged
+- GitHub Pages deployment — unchanged
+
+### Downsides
+
+| Concern | Mitigation |
+|---------|------------|
+| Password hashing | Use `bcrypt` in the Edge Function — same as Supabase uses internally |
+| Token expiry/refresh | 7-day JWT, no auto-refresh. On expiry, user re-logs in. Simple. |
+| Session security | JWT stored in `localStorage` — same as Supabase's current approach |
+| Multi-tab sync | `storage` event listener — standard pattern |
+| Bcrypt in Edge Functions | Deno has `https://deno.land/x/bcrypt` — works fine |
+| Supabase Dashboard user mgmt lost | Can build a simple admin "create user" UI, or use the `admin` Edge Function directly |
+
+---
+
 ## Critical Rewrites — Supabase Migration
 
 ### Motivation
