@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import worldMap from '../../assets/world_map.png'
 
 export interface MapPin {
@@ -23,6 +23,12 @@ interface GameMapProps {
 export function GameMap({ pins, currentPlayerId, onPinClick, onMapDoubleClick }: GameMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [hoveredPin, setHoveredPin] = useState<string | null>(null)
+  const [mapSrc, setMapSrc] = useState(worldMap)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('georp_map_url')
+    if (stored) setMapSrc(stored)
+  }, [])
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     if (!onMapDoubleClick || !containerRef.current) return
@@ -46,7 +52,7 @@ export function GameMap({ pins, currentPlayerId, onPinClick, onMapDoubleClick }:
       }}
     >
       <img
-        src={worldMap}
+        src={mapSrc}
         alt="World Map"
         draggable={false}
         style={{

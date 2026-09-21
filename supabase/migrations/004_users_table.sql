@@ -10,10 +10,9 @@ create table if not exists users (
 alter table users enable row level security;
 create policy "service_role_all" on users for all using (true) with check (true);
 
--- Seed admin user (password: admin) — bcrypt hash generated for 'admin'
--- The auth edge function will handle registration for other users
+-- Seed admin user (password: admin)
 insert into users (username, password_hash)
-values ('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy')
+values ('admin', '$2b$10$szrHOUnKYHEptASo0tdRBu6JlUBrQ2rlnWDVPCo6HPef7wyEwwuxO')
 on conflict (username) do nothing;
 
 -- Update nations.player_id FK to point to users.id instead of auth.users.id

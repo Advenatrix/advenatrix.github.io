@@ -63,15 +63,16 @@ serve(async (req) => {
 
   const url = new URL(req.url)
   const method = req.method
+  const path = path.replace(/^\/game-api/, '') || '/'
 
   // ---- Route: GET /nations ----
-  if (method === 'GET' && url.pathname === '/nations') {
+  if (method === 'GET' && path === '/nations') {
     const { data: nations } = await db.from('nations').select('*')
     return json({ nations: nations || [] })
   }
 
   // ---- Route: GET /nations/:id ----
-  const nationMatch = url.pathname.match(/^\/nations\/([^\/]+)$/)
+  const nationMatch = path.match(/^\/nations\/([^\/]+)$/)
   if (method === 'GET' && nationMatch) {
     const nationId = nationMatch[1]
     const { data: nation } = await db.from('nations').select('*').eq('id', nationId).single()
@@ -113,7 +114,7 @@ serve(async (req) => {
   }
 
   // ---- Route: PUT /nations/:id/policies ----
-  const policiesMatch = url.pathname.match(/^\/nations\/([^\/]+)\/policies$/)
+  const policiesMatch = path.match(/^\/nations\/([^\/]+)\/policies$/)
   if (method === 'PUT' && policiesMatch) {
     const nationId = policiesMatch[1]
     const body = await req.json()
@@ -129,7 +130,7 @@ serve(async (req) => {
   }
 
   // ---- Route: GET /eco-history/:nationId ----
-  const ecoMatch = url.pathname.match(/^\/eco-history\/([^\/]+)$/)
+  const ecoMatch = path.match(/^\/eco-history\/([^\/]+)$/)
   if (method === 'GET' && ecoMatch) {
     const { data: history } = await db.from('eco_history')
       .select('*').eq('nation_id', ecoMatch[1]).order('turn_number', { ascending: true })
@@ -137,17 +138,17 @@ serve(async (req) => {
   }
 
   // ---- Route: GET /provinces ----
-  if (method === 'GET' && url.pathname === '/provinces') {
+  if (method === 'GET' && path === '/provinces') {
     return json({ provinces: [] })
   }
 
   // ---- Route: GET /buildings ----
-  if (method === 'GET' && url.pathname === '/buildings') {
+  if (method === 'GET' && path === '/buildings') {
     return json({ buildings: [] })
   }
 
   // ---- Route: GET /pins ----
-  if (method === 'GET' && url.pathname === '/pins') {
+  if (method === 'GET' && path === '/pins') {
     const user = await getUserFromRequest(req)
     const myNation = await getMyNation(user)
     const myNationId = myNation?.id || null
@@ -168,7 +169,7 @@ serve(async (req) => {
   }
 
   // ---- Route: POST /pins ----
-  if (method === 'POST' && url.pathname === '/pins') {
+  if (method === 'POST' && path === '/pins') {
     const body = await req.json()
     const { x, y, label, description, visibility } = body
     if (x == null || y == null || !label) return json({ error: 'x, y, and label are required' }, 400)
@@ -192,7 +193,7 @@ serve(async (req) => {
   }
 
   // ---- Route: PUT /pins/:id ----
-  const pinPutMatch = url.pathname.match(/^\/pins\/([^\/]+)$/)
+  const pinPutMatch = path.match(/^\/pins\/([^\/]+)$/)
   if (method === 'PUT' && pinPutMatch) {
     const user = await getUserFromRequest(req)
     if (!user) return json({ error: 'Not authenticated' }, 401)
@@ -227,7 +228,7 @@ serve(async (req) => {
   }
 
   // ---- Route: GET /intel-shares ----
-  if (method === 'GET' && url.pathname === '/intel-shares') {
+  if (method === 'GET' && path === '/intel-shares') {
     const myNation = await getMyNationFromReq(req)
     if (!myNation) return json({ shares: [] })
 
@@ -246,7 +247,7 @@ serve(async (req) => {
   }
 
   // ---- Route: POST /intel-shares ----
-  if (method === 'POST' && url.pathname === '/intel-shares') {
+  if (method === 'POST' && path === '/intel-shares') {
     const body = await req.json()
     const { target_nation_id } = body
     if (!target_nation_id) return json({ error: 'target_nation_id required' }, 400)
@@ -269,7 +270,7 @@ serve(async (req) => {
   }
 
   // ---- Route: DELETE /intel-shares/:id ----
-  const intelMatch = url.pathname.match(/^\/intel-shares\/([^\/]+)$/)
+  const intelMatch = path.match(/^\/intel-shares\/([^\/]+)$/)
   if (method === 'DELETE' && intelMatch) {
     const myNation = await getMyNationFromReq(req)
     if (!myNation) return json({ error: 'You must control a nation' }, 400)
@@ -283,7 +284,7 @@ serve(async (req) => {
   }
 
   // ---- Route: GET /military/:nationId ----
-  const milMatch = url.pathname.match(/^\/military\/([^\/]+)$/)
+  const milMatch = path.match(/^\/military\/([^\/]+)$/)
   if (method === 'GET' && milMatch) {
     const nid = milMatch[1]
     const [templates, formations, units] = await Promise.all([
@@ -301,7 +302,7 @@ serve(async (req) => {
   }
 
   // ---- Route: GET /upkeep-breakdown/:nationId ----
-  const upkeepMatch = url.pathname.match(/^\/upkeep-breakdown\/([^\/]+)$/)
+  const upkeepMatch = path.match(/^\/upkeep-breakdown\/([^\/]+)$/)
   if (method === 'GET' && upkeepMatch) {
     const { data: units } = await db.from('units').select(`
       id, unit_type, upkeep, formation_id, nation_id,
@@ -335,7 +336,7 @@ serve(async (req) => {
   }
 
   // ---- Route: POST /companies ----
-  if (method === 'POST' && url.pathname === '/companies') {
+  if (method === 'POST' && path === '/companies') {
     const body = await req.json()
     const { name, nation_id, sector } = body
     if (!name || !nation_id) return json({ error: 'Name and nation_id required' }, 400)
@@ -361,7 +362,7 @@ serve(async (req) => {
   }
 
   // ---- Route: PUT /companies/:id/subsidies ----
-  const subMatch = url.pathname.match(/^\/companies\/([^\/]+)\/subsidies$/)
+  const subMatch = path.match(/^\/companies\/([^\/]+)\/subsidies$/)
   if (method === 'PUT' && subMatch) {
     const body = await req.json()
     const { subsidies } = body
@@ -380,7 +381,7 @@ serve(async (req) => {
   }
 
   // ---- Route: POST /unit-templates ----
-  if (method === 'POST' && url.pathname === '/unit-templates') {
+  if (method === 'POST' && path === '/unit-templates') {
     const body = await req.json()
     const { nation_id, name, branch, unit_type, armor, firepower, speed } = body
     if (!nation_id || !name || !branch || !armor || !firepower || !speed)
@@ -399,7 +400,7 @@ serve(async (req) => {
   }
 
   // ---- Route: PUT /unit-templates/:id ----
-  const tmplMatch = url.pathname.match(/^\/unit-templates\/([^\/]+)$/)
+  const tmplMatch = path.match(/^\/unit-templates\/([^\/]+)$/)
   if (method === 'PUT' && tmplMatch) {
     const body = await req.json()
     const { name, armor, firepower, speed } = body
@@ -420,7 +421,7 @@ serve(async (req) => {
   }
 
   // ---- Route: POST /formations ----
-  if (method === 'POST' && url.pathname === '/formations') {
+  if (method === 'POST' && path === '/formations') {
     const body = await req.json()
     const { nation_id, name, type, branch } = body
     if (!nation_id || !name || !type || !branch)
@@ -435,7 +436,7 @@ serve(async (req) => {
   }
 
   // ---- Route: POST /units ----
-  if (method === 'POST' && url.pathname === '/units') {
+  if (method === 'POST' && path === '/units') {
     const body = await req.json()
     const { template_id, formation_id, nation_id, name, unit_type, armor, firepower, speed, strength } = body
     if (!nation_id || !name) return json({ error: 'nation_id and name required' }, 400)
@@ -473,7 +474,7 @@ serve(async (req) => {
   }
 
   // ---- Route: PUT /units/:id/assign ----
-  const unitAssignMatch = url.pathname.match(/^\/units\/([^\/]+)\/assign$/)
+  const unitAssignMatch = path.match(/^\/units\/([^\/]+)\/assign$/)
   if (method === 'PUT' && unitAssignMatch) {
     const body = await req.json()
     const { formation_id } = body
@@ -487,14 +488,14 @@ serve(async (req) => {
   }
 
   // ---- Route: DELETE /units/:id ----
-  const unitMatch = url.pathname.match(/^\/units\/([^\/]+)$/)
+  const unitMatch = path.match(/^\/units\/([^\/]+)$/)
   if (method === 'DELETE' && unitMatch) {
     await db.from('units').delete().eq('id', unitMatch[1])
     return json({ ok: true })
   }
 
   // ---- Route: GET /turn/current ----
-  if (method === 'GET' && url.pathname === '/turn/current') {
+  if (method === 'GET' && path === '/turn/current') {
     const { data: turn } = await db.from('turns').select('*').eq('status', 'open').order('number', { ascending: false }).limit(1).single()
     if (!turn) return json({ turn: null })
 
@@ -503,7 +504,7 @@ serve(async (req) => {
   }
 
   // ---- Route: POST /turn/submit-order ----
-  if (method === 'POST' && url.pathname === '/turn/submit-order') {
+  if (method === 'POST' && path === '/turn/submit-order') {
     const body = await req.json()
     const { type, targetId, payload } = body
     if (!type) return json({ error: 'Order type required' }, 400)
@@ -546,7 +547,7 @@ serve(async (req) => {
   }
 
   // ---- Route: POST /tap-resource ----
-  if (method === 'POST' && url.pathname === '/tap-resource') {
+  if (method === 'POST' && path === '/tap-resource') {
     const body = await req.json()
     const { provinceId, resource, amount } = body
     if (!provinceId || !resource || amount == null) return json({ error: 'Missing fields' }, 400)
@@ -576,7 +577,7 @@ serve(async (req) => {
   // ── FRONT ROUTES ──────────────────────────────────────────────
 
   // ---- Route: GET /fronts ----
-  if (method === 'GET' && url.pathname === '/fronts') {
+  if (method === 'GET' && path === '/fronts') {
     const myNation = await getMyNationFromReq(req)
     if (!myNation) return json({ fronts: [], assignments: [] })
 
@@ -622,7 +623,7 @@ serve(async (req) => {
   }
 
   // ---- Route: POST /fronts ----
-  if (method === 'POST' && url.pathname === '/fronts') {
+  if (method === 'POST' && path === '/fronts') {
     const body = await req.json()
     const { name, war_name } = body
     if (!name) return json({ error: 'name required' }, 400)
@@ -647,7 +648,7 @@ serve(async (req) => {
   }
 
   // ---- Route: POST /fronts/:id/assign ----
-  const frontAssignMatch = url.pathname.match(/^\/fronts\/([^\/]+)\/assign$/)
+  const frontAssignMatch = path.match(/^\/fronts\/([^\/]+)\/assign$/)
   if (method === 'POST' && frontAssignMatch) {
     const body = await req.json()
     const { formation_id } = body
@@ -685,7 +686,7 @@ serve(async (req) => {
   }
 
   // ---- Route: DELETE /fronts/:id/assign/:formationId ----
-  const frontUnassignMatch = url.pathname.match(/^\/fronts\/([^\/]+)\/assign\/([^\/]+)$/)
+  const frontUnassignMatch = path.match(/^\/fronts\/([^\/]+)\/assign\/([^\/]+)$/)
   if (method === 'DELETE' && frontUnassignMatch) {
     const { data: front } = await db.from('fronts').select('*').eq('id', frontUnassignMatch[1]).eq('status', 'active').single()
     if (!front) return json({ error: 'Active front not found' }, 404)
@@ -703,7 +704,7 @@ serve(async (req) => {
   }
 
   // ---- Route: POST /fronts/:id/retreat ----
-  const frontRetreatMatch = url.pathname.match(/^\/fronts\/([^\/]+)\/retreat$/)
+  const frontRetreatMatch = path.match(/^\/fronts\/([^\/]+)\/retreat$/)
   if (method === 'POST' && frontRetreatMatch) {
     const { data: front } = await db.from('fronts').select('*').eq('id', frontRetreatMatch[1]).eq('status', 'active').single()
     if (!front) return json({ error: 'Active front not found' }, 404)
@@ -738,14 +739,14 @@ serve(async (req) => {
   // ── BATTLE ROUTES ─────────────────────────────────────────────
 
   // ---- Route: POST /battles/launch/:frontId ----
-  const battleLaunchMatch = url.pathname.match(/^\/battles\/launch\/([^\/]+)$/)
+  const battleLaunchMatch = path.match(/^\/battles\/launch\/([^\/]+)$/)
   if (method === 'POST' && battleLaunchMatch) {
     // For now, redirect to process-turn function
     return json({ error: 'Battles are resolved during turn processing. Use the turn system.' }, 400)
   }
 
   // ---- Route: GET /battles ----
-  if (method === 'GET' && url.pathname === '/battles') {
+  if (method === 'GET' && path === '/battles') {
     const myNation = await getMyNationFromReq(req)
     if (!myNation) return json({ battles: [] })
 

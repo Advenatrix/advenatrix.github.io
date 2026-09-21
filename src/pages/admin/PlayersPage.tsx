@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { getAdminPlayers, updatePlayer, deletePlayer, getAdminNations } from '../../services/adminApi'
+import { getAdminPlayers, updatePlayer, deletePlayer, getAdminNations, batch } from '../../services/adminApi'
 import { DataTable, Modal, Panel, Button, FlexCol, FlexRow, InputField, SelectField } from '../../components/ui'
 import { btnStyle } from '../../components/ui/FormStyles'
 
@@ -29,17 +29,20 @@ export function PlayersPage() {
 
   async function handleSave() {
     if (!editTarget) return
-    const data: Record<string, any> = {}
-    if (newPassword) data.password = newPassword
-    data.nation_id = selectedNation || null
-    await updatePlayer(editTarget.id, data)
+    const ops: any[] = []
+    ops.push({
+      type: 'assignPlayer' as const,
+      nationId: editTarget.nation_id || editTarget.id,
+      playerId: selectedNation ? editTarget.id : null,
+    })
+    await batch(ops)
     setEditTarget(null)
     fetch()
   }
 
   async function handleDelete(id: string) {
     if (!window.confirm('Delete this player?')) return
-    await deletePlayer(id)
+    await batch([{ type: 'deleteUser', userId: id }])
     fetch()
   }
 

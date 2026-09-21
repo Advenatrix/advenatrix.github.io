@@ -3,5 +3,5 @@ export { GamePage } from './GamePage'
 export {
   AdminLayout, DashboardPage, NationsPage, PlayersPage,
   CompaniesPage, TurnsPage, OrdersPage, SettingsPage, PinsPage, FrontsPage,
-  SectorModifiersPage,
+  SectorModifiersPage, MapPage,
 } from './admin'

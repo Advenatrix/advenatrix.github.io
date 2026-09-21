@@ -6,7 +6,7 @@ import { GamePage } from './pages/GamePage'
 import {
   AdminLayout, DashboardPage, NationsPage, PlayersPage,
   CompaniesPage, TurnsPage, OrdersPage, SettingsPage, PinsPage, FrontsPage,
-  SectorModifiersPage,
+  SectorModifiersPage, MapPage,
 } from './pages'
 
 function App() {
@@ -38,6 +38,7 @@ function App() {
           <Route path="fronts" element={<FrontsPage />} />
           <Route path="sector-modifiers" element={<SectorModifiersPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="map" element={<MapPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

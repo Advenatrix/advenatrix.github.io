@@ -2,6 +2,19 @@ import { getToken } from '../game/store/authStore'
 
 const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL + '/functions/v1'
 
+export interface BatchOp {
+  type: 'updateNation' | 'assignPlayer' | 'unassignPlayer' | 'deleteUser' | 'updateCompany' | 'createCompany' | 'updatePolicies'
+  id?: string
+  nationId?: string
+  userId?: string
+  playerId?: string | null
+  data?: Record<string, any>
+}
+
+export async function batch(operations: BatchOp[]): Promise<{ results: any[] }> {
+  return adminRequest('POST', '/batch', { operations })
+}
+
 function authHeaders(): Record<string, string> {
   const token = getToken()
   return {

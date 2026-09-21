@@ -18,8 +18,82 @@ All changes from the Auth Simplification plan below have been implemented:
 **To finish deployment:**
 1. `supabase migration up` (run `004_users_table.sql`)
 2. `supabase functions deploy auth game-api admin process-turn`
-3. `supabase secrets set JWT_SECRET=your-secret`
+3. `supabase secrets set JWT_SECRET=georp-dev-secret-change-in-production`
 4. Rebuild + deploy frontend to GitHub Pages
+
+---
+
+## Priority Backlog
+
+### Data Caching — Zustand persist store
+
+Add a `useDataStore` with Zustand `persist` middleware to cache game data at login and avoid redundant fetches:
+
+| Cache key | Data | Invalidated when |
+|-----------|------|------------------|
+| `nation` | Own nation (with companies, sector caps) | After policy/subsidy/military changes |
+| `currentTurn` | Current turn + player orders | After order submission, turn processing |
+| `pins` | Map pins | After pin CRUD |
+| `ecoHistory` | Economic history chart data | After turn processing |
+| `military` | Templates, formations, units | After military CRUD |
+| `fronts` | Fronts + assignments | After front/battle actions |
+| `battles` | Battle history | After turn processing |
+
+**Cache behavior:**
+- On GamePage mount: fetch all, write to store + localStorage
+- Sub-page navigation: read from store, no HTTP call
+- After any mutation (CRUD, order, turn): invalidate the relevant cache key, refetch
+- Cross-tab: `storage` event listener refreshes stale cache (same pattern as authStore)
+- TTL: cache expires after 5 minutes, next read triggers background refresh
+
+#### Files to create
+| File | Purpose |
+|------|---------|
+| `src/game/store/dataStore.ts` | Zustand store with `persist` middleware, all game data slices |
+
+#### Files to modify
+| File | Change |
+|------|--------|
+| `src/pages/GamePage.tsx` | Replace local `useState` + fetches with `useDataStore` load action |
+| `src/pages/economy/EconomyPage.tsx` | Read from dataStore instead of direct fetch |
+| `src/pages/operations/OperationsPage.tsx` | Same |
+| `src/pages/military/MilitaryPage.tsx` | Same |
+| `src/pages/diplomacy/DiplomacyPage.tsx` | Same |
+| `src/services/api.ts` | Add invalidation helpers |
+
+### Admin UX Fixes
+
+#### Batch Operations
+Add `POST /admin/batch` endpoint accepting an array of operations (update nation, update player, create company, etc.) executed in a single transaction. Frontend queues mutations and flushes on a timer or explicit save.
+
+| File | Change |
+|------|--------|
+| `supabase/functions/admin/index.ts` | Add `POST /batch` route, loop over operation array |
+| `src/services/adminApi.ts` | Add `batch(operations[])` function |
+| `src/pages/admin/PlayersPage.tsx` | Queue player changes through batch instead of individual calls |
+| `src/pages/admin/NationsPage.tsx` | Same |
+| `src/pages/admin/DashboardPage.tsx` | Add inline CRUD for players (assign/unassign nation, reset password, delete user) |
+
+#### Fix Player Delete
+Current `DELETE /players/:id` only nullifies `nations.player_id`. Fix to:
+1. Look up user by nation `player_id` (if ID is nation UUID) or directly (if ID is user UUID)
+2. Delete the row from `users` table
+3. Nullify `nations.player_id`
+
+| File | Change |
+|------|--------|
+| `supabase/functions/admin/index.ts` | Rewrite `DELETE /players/:id` handler |
+
+### Map Management Dashboard
+
+Upload/replace the world map image and pins auto-resize to the new image dimensions.
+
+| File | Change |
+|------|--------|
+| `src/pages/admin/MapPage.tsx` | New page: image upload preview, confirm + replace, pin auto-resize |
+| `supabase/storage` or `public/` | Store uploaded map |
+| `src/services/adminApi.ts` | Add `uploadMap(file)` function |
+| `src/pages/AdminLayout.tsx` | Add "Map" nav item |
 
 ---
 

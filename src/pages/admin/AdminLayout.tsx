@@ -11,6 +11,7 @@ const SIDEBAR_ITEMS = [
   { path: '/admin/orders', label: 'Orders' },
   { path: '/admin/fronts', label: 'Fronts' },
   { path: '/admin/pins', label: 'Map Pins' },
+  { path: '/admin/map', label: 'Map' },
   { path: '/admin/settings', label: 'Settings' },
 ]
 

@@ -28,7 +28,13 @@ export function PinsPage() {
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ nation_id: '', x: 50, y: 50, label: '', description: '' })
   const [hoveredPin, setHoveredPin] = useState<string | null>(null)
+  const [mapSrc, setMapSrc] = useState(worldMap)
   const mapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('georp_map_url')
+    if (stored) setMapSrc(stored)
+  }, [])
 
   const fetch = useCallback(() => {
     setLoading(true)
@@ -119,7 +125,7 @@ export function PinsPage() {
             background: '#000', cursor: (creating || editTarget) ? 'crosshair' : 'default',
           }}
         >
-          <img src={worldMap} alt="World Map" draggable={false} style={{ display: 'block', width: '100%', height: '100%', objectFit: 'contain', userSelect: 'none' }} />
+          <img src={mapSrc} alt="World Map" draggable={false} style={{ display: 'block', width: '100%', height: '100%', objectFit: 'contain', userSelect: 'none' }} />
           {pins.map(pin => {
             return (
               <div

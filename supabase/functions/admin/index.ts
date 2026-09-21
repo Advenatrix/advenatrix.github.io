@@ -3,6 +3,8 @@ import { db, json } from '../_shared/db.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 import { getUserFromRequest } from '../_shared/jwt.ts'
 
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -10,7 +12,7 @@ serve(async (req) => {
 
   const url = new URL(req.url)
   const method = req.method
-  const path = url.pathname
+  const path = url.pathname.replace(/^\/admin/, '') || '/'
 
   // Verify admin via custom JWT
   const user = await getUserFromRequest(req)
@@ -97,8 +99,67 @@ serve(async (req) => {
 
   // ── DELETE /players/:id ──
   if (method === 'DELETE' && playerMatch) {
-    await db.from('nations').update({ player_id: null }).eq('id', playerMatch[1])
+    const id = playerMatch[1]
+    // Check if ID is a nation UUID with a linked user
+    const { data: nation } = await db.from('nations').select('id, player_id').eq('id', id).maybeSingle()
+    if (nation) {
+      if (nation.player_id) {
+        await db.from('users').delete().eq('id', nation.player_id)
+      }
+      await db.from('nations').update({ player_id: null }).eq('id', nation.id)
+    } else {
+      // ID might be a user UUID directly — delete user and clear any nation link
+      await db.from('users').delete().eq('id', id)
+      await db.from('nations').update({ player_id: null }).eq('player_id', id)
+    }
     return json({ ok: true })
+  }
+
+  // ── POST /batch ──
+  if (method === 'POST' && path === '/batch') {
+    const { operations } = await req.json()
+    if (!Array.isArray(operations)) return json({ error: 'operations must be an array' }, 400)
+    const results: any[] = []
+    for (const op of operations) {
+      try {
+        switch (op.type) {
+          case 'updateNation':
+            await db.from('nations').update(op.data).eq('id', op.id)
+            results.push({ type: op.type, id: op.id, ok: true })
+            break
+          case 'assignPlayer':
+            await db.from('nations').update({ player_id: op.playerId || null }).eq('id', op.nationId)
+            results.push({ type: op.type, nationId: op.nationId, ok: true })
+            break
+          case 'unassignPlayer':
+            await db.from('nations').update({ player_id: null }).eq('id', op.nationId)
+            results.push({ type: op.type, nationId: op.nationId, ok: true })
+            break
+          case 'deleteUser':
+            await db.from('users').delete().eq('id', op.userId)
+            await db.from('nations').update({ player_id: null }).eq('player_id', op.userId)
+            results.push({ type: op.type, userId: op.userId, ok: true })
+            break
+          case 'updateCompany':
+            await db.from('companies').update(op.data).eq('id', op.id)
+            results.push({ type: op.type, id: op.id, ok: true })
+            break
+          case 'createCompany':
+            const { data: company } = await db.from('companies').insert(op.data).select().single()
+            results.push({ type: op.type, company, ok: true })
+            break
+          case 'updatePolicies':
+            await db.from('nations').update(op.data).eq('id', op.nationId)
+            results.push({ type: op.type, nationId: op.nationId, ok: true })
+            break
+          default:
+            results.push({ type: op.type, error: `Unknown operation type: ${op.type}` })
+        }
+      } catch (e: any) {
+        results.push({ type: op.type, error: e.message || String(e) })
+      }
+    }
+    return json({ results })
   }
 
   // ── GET /companies ──
@@ -360,6 +421,28 @@ serve(async (req) => {
   const frontRejectMatch = path.match(/^\/fronts\/([^\/]+)\/reject$/)
   if (method === 'POST' && frontRejectMatch) {
     await db.from('fronts').update({ status: 'resolved' }).eq('id', frontRejectMatch[1])
+    return json({ ok: true })
+  }
+
+  // ── GET /map-config ──
+  if (method === 'GET' && path === '/map-config') {
+    const { data: settings } = await db.from('game_settings').select('map_url, map_width, map_height').eq('id', 'default').single()
+    return json({
+      map_url: settings?.map_url || '',
+      map_width: settings?.map_width || 1920,
+      map_height: settings?.map_height || 1080,
+    })
+  }
+
+  // ── POST /map-config (upload map metadata) ──
+  if (method === 'POST' && path === '/map-config') {
+    const body = await req.json()
+    const updates: Record<string, any> = {}
+    if (body.map_url !== undefined) updates.map_url = body.map_url
+    if (body.map_width !== undefined) updates.map_width = body.map_width
+    if (body.map_height !== undefined) updates.map_height = body.map_height
+    const { error } = await db.from('game_settings').update(updates).eq('id', 'default')
+    if (error) return json({ error: error.message }, 500)
     return json({ ok: true })
   }
 
