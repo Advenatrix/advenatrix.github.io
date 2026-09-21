@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { LoginForm } from '../components/auth/LoginForm'
-import { SignUpForm } from '../components/auth/SignUpForm'
+import { LoginForm, SignUpForm } from '../components/auth'
+import { Button } from '../components/ui/Button'
 
 export function HomePage() {
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [showSignup, setShowSignup] = useState(false)
 
   return (
     <div className="page-center">
@@ -12,22 +12,26 @@ export function HomePage() {
         <p>Nationbuilding Roleplay</p>
       </div>
       <div className="auth-container">
-        {mode === 'login' ? (
-          <>
-            <LoginForm />
-            <button type="button" className="auth-switch" onClick={() => setMode('signup')}>
-              New nation? Create an account
-            </button>
-          </>
-        ) : (
-          <>
+        {showSignup ? (
+          <div className="switch-stack">
             <SignUpForm />
-            <button type="button" className="auth-switch" onClick={() => setMode('login')}>
-              Already a member? Log in
-            </button>
-          </>
+            <div className="auth-container" style={{ marginTop: 16 }}>
+              <Button variant="primary" className="btn-full" onClick={() => setShowSignup(false)}>
+                Already a member? Log in
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <LoginForm />
         )}
       </div>
+      {!showSignup && (
+        <div className="auth-container" style={{ marginTop: 16 }}>
+          <Button variant="primary" className="btn-full" onClick={() => setShowSignup(true)}>
+            New nation? Create an account
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

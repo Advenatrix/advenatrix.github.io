@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 interface ButtonProps {
   children: ReactNode
   onClick?: () => void
-  variant?: 'primary' | 'secondary' | 'danger'
+  variant?: 'primary' | 'secondary' | 'danger' | 'blue'
   disabled?: boolean
   className?: string
   type?: 'button' | 'submit'

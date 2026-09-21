@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { getAdminPlayers, updatePlayer, deletePlayer, getAdminNations, batch } from '../../services/adminApi'
+import { getAdminPlayers, getAdminNations, batch } from '../../services/adminApi'
 import { DataTable, Modal, Panel, Button, FlexCol, FlexRow, InputField, SelectField } from '../../components/ui'
 import { btnStyle } from '../../components/ui/FormStyles'
 

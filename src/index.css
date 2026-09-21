@@ -21,6 +21,8 @@
   --red-bright: #ff2222;
   --amber: #aa6600;
   --amber-bright: #ffaa00;
+  --blue: #1e63d0;
+  --blue-bright: #3b82f6;
 
   --accent: var(--cyan);
   --accent-bright: var(--cyan-bright);
@@ -130,6 +132,15 @@ button {
 }
 .btn-danger:hover:not(:disabled) {
   background: var(--red-bright);
+}
+.btn-blue {
+  background: var(--blue);
+  color: var(--text-bright);
+  border-color: var(--blue);
+}
+.btn-blue:hover:not(:disabled) {
+  background: var(--blue-bright);
+  border-color: var(--blue-bright);
 }
 .btn:disabled {
   opacity: 0.3;

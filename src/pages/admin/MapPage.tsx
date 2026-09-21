@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react'
 import { Panel, Button, FlexCol, FlexRow } from '../../components/ui'
 
 export function MapPage() {
-  const [mapUrl, setMapUrl] = useState('')
   const [mapDimensions, setMapDimensions] = useState({ width: 1920, height: 1080 })
   const [previewUrl, setPreviewUrl] = useState('')
   const [saving, setSaving] = useState(false)
@@ -12,7 +11,6 @@ export function MapPage() {
   useEffect(() => {
     const stored = localStorage.getItem('georp_map_url')
     if (stored) {
-      setMapUrl(stored)
       setPreviewUrl(stored)
     }
     const w = localStorage.getItem('georp_map_width')
@@ -44,7 +42,6 @@ export function MapPage() {
     localStorage.setItem('georp_map_url', previewUrl)
     localStorage.setItem('georp_map_width', String(mapDimensions.width))
     localStorage.setItem('georp_map_height', String(mapDimensions.height))
-    setMapUrl(previewUrl)
     setMessage('Map saved. Pins will auto-resize (they use percentage coordinates).')
     setSaving(false)
   }
@@ -83,7 +80,6 @@ export function MapPage() {
               localStorage.removeItem('georp_map_width')
               localStorage.removeItem('georp_map_height')
               setPreviewUrl('')
-              setMapUrl('')
               setMessage('Reset to default map. Reload pages to see default.')
             }}>
               Reset to Default
